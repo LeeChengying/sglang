@@ -1046,6 +1046,9 @@ class ServerArgs:
                     "Page first direct layout only support direct io backend"
                 )
 
+        if self.hicache_storage_backend == "unifiedcache":
+            self.hicache_mem_layout = "page_first"
+
     def _handle_speculative_decoding(self):
         if self.speculative_algorithm == "NEXTN":
             self.speculative_algorithm = "EAGLE"
@@ -2337,10 +2340,10 @@ class ServerArgs:
         parser.add_argument(
             "--hicache-storage-backend",
             type=str,
-            choices=["file", "mooncake", "hf3fs", "nixl", "aibrix", "dynamic", "eic"],
+            choices=["file", "mooncake", "hf3fs", "nixl", "aibrix", "dynamic", "eic", "unifiedcache"],
             default=ServerArgs.hicache_storage_backend,
             help="The storage backend for hierarchical KV cache. "
-            "Built-in backends: file, mooncake, hf3fs, nixl, aibrix. "
+            "Built-in backends: file, mooncake, hf3fs, nixl, aibrix, unifiedcache. "
             "For dynamic backend, use --hicache-storage-backend-extra-config to specify: "
             "backend_name (custom name), module_path (Python module path), class_name (backend class name).",
         )
