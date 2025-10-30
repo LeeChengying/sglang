@@ -1,4 +1,5 @@
 import logging
+from abc import ABC
 from dataclasses import dataclass
 from typing import Any, Callable, List, Optional, Dict, Tuple
 from enum import Enum, auto
@@ -74,7 +75,7 @@ def _class_name(o) -> str:
     return o.__class__.__name__
 
 
-class BaseBackendAdapter:
+class BaseBackendAdapter(ABC):
     create_func: Callable[[List[str]], List[int]]
     wait_func: Callable[["Task"], Any]
     lookup_func: Callable[[List[str]], List[bool]]
@@ -151,8 +152,7 @@ class MhaBackendAdapter(BaseBackendAdapter):
         elem_size = elem_size_list[0]
         key_list = self._get_page_keys(keys)
         offset_list = self._get_page_offsets(keys, elem_size)
-        if is_set:
-            lookup_results = self.__class__.lookup_func(keys)
+
         try:
             assert len(key_list) == len(ptr_list), \
             f"Key/Ptr list mismatch: {len(key_list)} vs {len(ptr_list)}"
@@ -161,32 +161,35 @@ class MhaBackendAdapter(BaseBackendAdapter):
         except Exception as e:
             logger.error(f"Error in build_transfer_data: {e}")
 
-        if is_set:
-            create_key_list: List[str] = []
-            new_key_list: List[str] = []
-            new_offset_list: List[int] = []
-            new_ptr_list: List[int] = []
-            new_elem_size_list: List[int] = []
+        if not is_set:
+            return key_list, offset_list, ptr_list, elem_size_list
 
-            for i in range(len(keys)):
-                if lookup_results[i] != 1:
-                    create_key_list.append(keys[i])
-                    for k in range(self._get_cache_nums()):
-                        new_key_list.append(key_list[2 * i + k])
-                        new_offset_list.append(offset_list[2 * i + k])
-                        new_ptr_list.append(ptr_list[2 * i + k])
-                        new_elem_size_list.append(elem_size_list[2 * i + k])
-                else:
-                    for _ in range(self._get_cache_nums()):
-                        new_key_list.append(EXIST_FLAG_STR)
-                        new_offset_list.append(EXIST_FLAG)
-                        new_ptr_list.append(EXIST_FLAG)
-                        new_elem_size_list.append(EXIST_FLAG)
+        lookup_results = self.__class__.lookup_func(keys)
 
-            self.__class__.create_func(create_key_list)
-            return new_key_list, new_offset_list, new_ptr_list, new_elem_size_list
+        create_key_list: List[str] = []
+        new_key_list: List[str] = []
+        new_offset_list: List[int] = []
+        new_ptr_list: List[int] = []
+        new_elem_size_list: List[int] = []
 
-        return key_list, offset_list, ptr_list, elem_size_list
+        for i in range(len(keys)):
+            if lookup_results[i] != 1:
+                create_key_list.append(keys[i])
+                for k in range(self._get_cache_nums()):
+                    new_key_list.append(key_list[2 * i + k])
+                    new_offset_list.append(offset_list[2 * i + k])
+                    new_ptr_list.append(ptr_list[2 * i + k])
+                    new_elem_size_list.append(elem_size_list[2 * i + k])
+            else:
+                for _ in range(self._get_cache_nums()):
+                    new_key_list.append(EXIST_FLAG_STR)
+                    new_offset_list.append(EXIST_FLAG)
+                    new_ptr_list.append(EXIST_FLAG)
+                    new_elem_size_list.append(EXIST_FLAG)
+
+        self.__class__.create_func(create_key_list)
+        return new_key_list, new_offset_list, new_ptr_list, new_elem_size_list
+
 
     def get_dump_list(self, dump_key_list: List[str]) -> List[str]:
         half_dump_len = len(dump_key_list) // 2
@@ -219,8 +222,7 @@ class MlaBackendAdapter(BaseBackendAdapter):
         elem_size = elem_size_list[0]
         key_list = self._get_page_keys(keys)
         offset_list = self._get_page_offsets(keys, elem_size)
-        if is_set:
-            lookup_results = self.__class__.lookup_func(keys)
+
         try:
             assert len(key_list) == len(ptr_list), \
             f"Key/Ptr list mismatch: {len(key_list)} vs {len(ptr_list)}"
@@ -231,31 +233,33 @@ class MlaBackendAdapter(BaseBackendAdapter):
         except Exception as e:
             logger.error(f"Error in build_transfer_data: {e}")
 
-        if is_set:
-            create_key_list: List[str] = []
-            new_key_list: List[str] = []
-            new_offset_list: List[int] = []
-            new_ptr_list: List[int] = []
-            new_elem_size_list: List[int] = []
+        if not is_set:
+            return key_list, offset_list, ptr_list, elem_size_list
 
-            for i in range(len(key_list)):
-                if lookup_results[i] != 1:
-                    create_key_list.append(key_list[i])
+        lookup_results = self.__class__.lookup_func(keys)
 
-                    new_key_list.append(key_list[i])
-                    new_offset_list.append(offset_list[i])
-                    new_ptr_list.append(ptr_list[i])
-                    new_elem_size_list.append(elem_size_list[i])
-                else:
-                    new_key_list.append(EXIST_FLAG_STR)
-                    new_offset_list.append(EXIST_FLAG)
-                    new_ptr_list.append(EXIST_FLAG)
-                    new_elem_size_list.append(EXIST_FLAG)
+        create_key_list: List[str] = []
+        new_key_list: List[str] = []
+        new_offset_list: List[int] = []
+        new_ptr_list: List[int] = []
+        new_elem_size_list: List[int] = []
 
-            self.__class__.create_func(create_key_list)
-            return new_key_list, new_offset_list, new_ptr_list, new_elem_size_list
+        for i in range(len(key_list)):
+            if lookup_results[i] != 1:
+                create_key_list.append(key_list[i])
 
-        return key_list, offset_list, ptr_list, elem_size_list
+                new_key_list.append(key_list[i])
+                new_offset_list.append(offset_list[i])
+                new_ptr_list.append(ptr_list[i])
+                new_elem_size_list.append(elem_size_list[i])
+            else:
+                new_key_list.append(EXIST_FLAG_STR)
+                new_offset_list.append(EXIST_FLAG)
+                new_ptr_list.append(EXIST_FLAG)
+                new_elem_size_list.append(EXIST_FLAG)
+
+        self.__class__.create_func(create_key_list)
+        return new_key_list, new_offset_list, new_ptr_list, new_elem_size_list
 
     def get_dump_list(self, dump_key_list: List[str]) -> List[str]:
         return dump_key_list
