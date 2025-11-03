@@ -92,7 +92,7 @@ class StorageBackendFactory:
                 f"({registry_entry['module_path']}.{registry_entry['class_name']})"
             )
             return cls._create_builtin_backend(
-                backend_name, backend_class, storage_config, mem_pool_host
+                backend_name, backend_class, storage_config, mem_pool_host, **kwargs
             )
 
         # Try to dynamically load backend from extra_config
@@ -156,6 +156,7 @@ class StorageBackendFactory:
         backend_class: type[HiCacheStorage],
         storage_config: HiCacheStorageConfig,
         mem_pool_host: Any,
+        **kwargs,
     ) -> HiCacheStorage:
         """Create built-in backend with original initialization logic."""
         if backend_name == "file":
@@ -184,7 +185,8 @@ class StorageBackendFactory:
         elif backend_name == "eic":
             return backend_class(storage_config, mem_pool_host)
         elif backend_name == "unifiedcache":
-            return backend_class(storage_config, mem_pool_host)
+            tp_group = kwargs.get("tp_group", None)
+            return backend_class(storage_config, mem_pool_host, tp_group)
         else:
             raise ValueError(f"Unknown built-in backend: {backend_name}")
 

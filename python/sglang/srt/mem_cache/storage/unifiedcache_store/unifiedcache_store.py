@@ -270,8 +270,7 @@ class MlaBackendAdapter(BaseBackendAdapter):
 
 class UnifiedCacheStore(HiCacheStorage):
 
-    def __init__(self, storage_config: HiCacheStorageConfig = None, mem_pool_host: HostKVCache = None):
-
+    def __init__(self, storage_config: HiCacheStorageConfig = None, mem_pool_host: HostKVCache = None, tp_group = None):
         try:
             assert mem_pool_host is not None, "mem_pool_host cannot be None"
             ucm_store_config = UnifiedCacheStoreConfig.load_config(
@@ -283,6 +282,11 @@ class UnifiedCacheStore(HiCacheStorage):
             self.total_tp_size = storage_config.tp_size
             self.tp_size = storage_config.tp_size
             self.tp_rank = storage_config.tp_rank
+            if self.total_tp_size > 1:
+                group_ranks = torch.distributed.get_process_group_ranks(tp_group)
+                self.commit_tp_group = torch.distributed.new_group(
+                    group_ranks, backend="gloo"
+                )
             self.backend = self._init_backend_adapter(mem_pool_host)
 
         except ValueError as e:
@@ -368,8 +372,24 @@ class UnifiedCacheStore(HiCacheStorage):
 
         dump_key_list = self.adapter.get_dump_list(dump_key_list)
         success_flags = self.adapter.wait_tasks(tasks)
-        if self.tp_rank == 0:
+
+        if self.is_mla_model:
             self.adapter.commit_tasks(dump_key_list, all(success_flags))
+        else:
+            if self.total_tp_size > 1:
+                is_success = torch.tensor(
+                    [1 if all(success_flags) else 0],
+                    dtype=torch.int,
+                    device="cuda" if torch.cuda.is_available() else "cpu",
+                )
+
+                torch.distributed.all_reduce(is_success, op=torch.distributed.ReduceOp.SUM, group=self.commit_tp_group)
+                if self.tp_rank == 0:
+                    is_all_success =  (is_success.item() == self.total_tp_size)
+                    self.adapter.commit_tasks(dump_key_list, is_all_success)
+            else:
+                is_all_success = all(success_flags)
+                self.adapter.commit_tasks(dump_key_list, is_all_success)
 
         return success_flags
 

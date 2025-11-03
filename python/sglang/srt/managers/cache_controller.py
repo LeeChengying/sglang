@@ -280,7 +280,7 @@ class HiCacheController:
 
             try:
                 self.storage_backend = StorageBackendFactory.create_backend(
-                    storage_backend, self.storage_config, self.mem_pool_host
+                    storage_backend, self.storage_config, self.mem_pool_host, tp_group=tp_group
                 )
             except ValueError as e:
                 raise ValueError(f"Failed to create storage backend: {e}") from e
