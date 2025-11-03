@@ -227,5 +227,5 @@ StorageBackendFactory.register_backend(
 StorageBackendFactory.register_backend(
     "unifiedcache",
     "sglang.srt.mem_cache.storage.unifiedcache_store.unifiedcache_store",
-    "UnifiedcacheStore",
+    "UnifiedCacheStore",
 )
